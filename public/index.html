@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catan Online Nội Bộ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
+</head>
+<body class="flex justify-center items-center h-screen bg-gray-100">
+  <div id="root" class="p-4 max-w-4xl mx-auto">
+    <h1 className="text-3xl font-bold text-center mb-4">Catan Online Nội Bộ</h1>
+    <div className="flex mb-4">
+      <input id="roomId" type="text" placeholder="Nhập mã phòng" class="border p-2 rounded mr-2" />
+      <button onclick="joinRoom()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Tham gia</button>
+    </div>
+    <div id="board" class="relative w-full h-96 bg-gray-200 rounded-lg"></div>
+    <div class="mt-4">
+      <button onclick="rollDice()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Tung xúc xắc</button>
+      <p id="diceResult" class="mt-2">Xúc xắc: Chưa tung</p>
+    </div>
+    <div class="mt-4">
+      <h2 class="text-xl font-semibold">Người chơi:</h2>
+      <ul id="playerList"></ul>
+    </div>
+  </div>
+  <script>
+    const socket = io('http://localhost:3000');
+    let gameState = { hexes: [], players: [], currentPlayer: null, dice: [0, 0] };
+
+    function initHexes() {
+      const resources = ['wood', 'wheat', 'sheep', 'ore', 'brick'];
+      const hexes = [];
+      for (let q = -2; q <= 2; q++) {
+        for (let r = -2; r <= 2; r++) {
+          if (Math.abs(q + r) <= 2) {
+            hexes.push({
+              q, r,
+              resource: resources[Math.floor(Math.random() * resources.length)],
+              number: Math.floor(Math.random() * 11) + 2,
+            });
+          }
+        }
+      }
+      return hexes;
+    }
+
+    function renderBoard() {
+      const board = document.getElementById('board');
+      board.innerHTML = '';
+      gameState.hexes.forEach(hex => {
+        const div = document.createElement('div');
+        div.className = `absolute w-12 h-12 flex items-center justify-center text-white font-bold rounded-full ${
+          hex.resource === 'wood' ? 'bg-green-600' :
+          hex.resource === 'wheat' ? 'bg-yellow-500' :
+          hex.resource === 'sheep' ? 'bg-green-300' :
+          hex.resource === 'ore' ? 'bg-gray-500' : 'bg-red-500'
+        }`;
+        div.style.left = `${400 + hex.q * 60}px`;
+        div.style.top = `${300 + (hex.r + hex.q / 2) * 70}px`;
+        div.innerText = hex.number;
+        board.appendChild(div);
+      });
+    }
+
+    function renderPlayers() {
+      const playerList = document.getElementById('playerList');
+      playerList.innerHTML = '';
+      gameState.players.forEach(player => {
+        const li = document.createElement('li');
+        li.innerText = player + (player === gameState.currentPlayer ? ' (Đang chơi)' : '');
+        playerList.appendChild(li);
+      });
+    }
+
+    function joinRoom() {
+      const roomId = document.getElementById('roomId').value;
+      if (roomId) socket.emit('joinRoom', roomId);
+    }
+
+    function rollDice() {
+      const roomId = document.getElementById('roomId').value;
+      if (roomId) socket.emit('rollDice', roomId);
+    }
+
+    socket.on('gameState', (state) => {
+      gameState = state;
+      renderBoard();
+      renderPlayers();
+      document.getElementById('diceResult').innerText = `Xúc xắc: ${state.dice[0]} + ${state.dice[1]}`;
+    });
+
+    gameState.hexes = initHexes();
+    renderBoard();
+  </script>
+</body>
+</html>
